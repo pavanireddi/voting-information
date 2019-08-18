@@ -7,7 +7,7 @@ Description : Implements APIs to fetch data from SCB database &
 Copyrights  : LearningWell
 '''
 
-import requests, json, codecs
+import requests, json, codecs, sys
 
 class VotingInformation:
     """
@@ -44,11 +44,15 @@ class VotingInformation:
         # map counties and county codes using 'GET' request
         response = requests.get(self.url)
         if response.status_code == requests.codes.ok:
-            data = json.loads(response.text)
-            for code, county in zip(data['variables'][0]['values'], \
-                data['variables'][0]['valueTexts']):
-                self.counties_codes[code] = county
-            # self.vi_log_msg(self.counties_codes)
+            try:
+                data = json.loads(response.text)
+                for code, county in zip(data['variables'][0]['values'], \
+                    data['variables'][0]['valueTexts']):
+                    self.counties_codes[code] = county
+                # self.vi_log_msg(self.counties_codes)
+            except Exception as e:
+                self.vi_log_msg('CRITICAL_ERROR : ', str(e), '. Exiting!!')
+                sys.exit()
         else:
             self.vi_log_msg('"GET" request failed. Received error code:', \
                 response.status_code)
@@ -57,32 +61,38 @@ class VotingInformation:
         # json_query must state response format as json
         response = requests.post(self.url, json=self.json_query)
         if response.status_code == requests.codes.ok:
-            json_response_obj = json.loads(codecs.encode(response.text, \
-                'utf-8'))
+            try:
+                json_response_obj = json.loads(codecs.encode(response.text, \
+                    'utf-8'))
 
-            # json_response_obj['data'] is in below format
-            # {"key":[county_code, voting_year],"values":[voting_percentage]}
-            # Eg: {"key":["01L","1973"],"values":["90.0"]}
-            for voting_data in json_response_obj['data']:
-                county_code = voting_data['key'][0]
-                voting_year = int(voting_data['key'][1])
-                voting_percentage = voting_data['values'][0]
-                # voting_percentage not available
-                if voting_percentage == '..':
-                    voting_percentage = 0.0
-                else:
-                    voting_percentage = float(voting_percentage)
-                # get county name from county code
-                county_name = self.counties_codes[county_code]
-                
-                # map voting information with voting year & county, i.e,
-                # voting_information[voting_year][county] = voting_percentage
-                # Eg: voting_information[1973]['Stockholm county council'] = \
-                #                                                   90.0
-                if voting_year not in self.voting_information.keys():
-                    self.voting_information[voting_year] = {}
-                self.voting_information[voting_year][county_name] = \
-                    voting_percentage
+                # json_response_obj['data'] is in below format
+                # {"key":[county_code, voting_year],"values":\
+                #                               [voting_percentage]}
+                # Eg: {"key":["01L","1973"],"values":["90.0"]}
+                for voting_data in json_response_obj['data']:
+                    county_code = voting_data['key'][0]
+                    voting_year = int(voting_data['key'][1])
+                    voting_percentage = voting_data['values'][0]
+                    # voting_percentage not available
+                    if voting_percentage == '..':
+                        voting_percentage = 0.0
+                    else:
+                        voting_percentage = float(voting_percentage)
+                    # get county name from county code
+                    county_name = self.counties_codes[county_code]
+                    
+                    # map voting information with voting year & county, i.e,
+                    # voting_information[voting_year][county] = \
+                    #                               voting_percentage
+                    # Eg: voting_information[1973]['Stockholm county council'] \
+                    #                               = 90.0
+                    if voting_year not in self.voting_information.keys():
+                        self.voting_information[voting_year] = {}
+                    self.voting_information[voting_year][county_name] = \
+                        voting_percentage
+            except Exception as e:
+                self.vi_log_msg('CRITICAL_ERROR : ', str(e), '. Exiting!!')
+                sys.exit()
         else:
             self.vi_log_msg('"POST" request failed. Received error code:', \
                 response.status_code)
